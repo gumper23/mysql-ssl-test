@@ -1,0 +1,10 @@
+---
+database:
+  username: 'ssluser'
+  password: 'REDACTED'
+  host: '127.0.0.1'
+  port: '3306'
+  schema: 'information_schema'
+  connectoptions:
+    tls: 'skip-verify'
+    timeout: '3s'
