@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	github.com/go-sql-driver/mysql v1.6.0
+	github.com/gumper23/dbstuff v0.0.0-20200602095203-f7c53b6d6f37
 	github.com/spf13/viper v1.11.0
 )
 

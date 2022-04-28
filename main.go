@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/url"
 
+	"github.com/gumper23/dbstuff/dbhelper"
 	"github.com/spf13/viper"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -23,18 +24,42 @@ type Configuration struct {
 }
 
 func main() {
+	config, err := GetConfig()
+	if err != nil {
+		log.Fatalf("Error reading configuration: %s\n", err.Error())
+	}
+
+	db, err := config.GetMySQLDB()
+	if err != nil {
+		log.Fatalf("Error connecting to database: %s\n", err.Error())
+	}
+	defer db.Close()
+	dbconfig := config.Database
+	fmt.Printf("Successfully connected to database [%s:%s]\n", dbconfig.Host, dbconfig.Port)
+
+	row, cols, err := dbhelper.QueryRow(db, "select 22 as val")
+	if err != nil {
+		log.Fatalf("Error querying db: %s\n", err.Error())
+	}
+	for _, col := range cols {
+		fmt.Printf("Col [%s] = [%s]\n", col, row[col])
+	}
+}
+
+func GetConfig() (config *Configuration, err error) {
 	viper.SetConfigName("mysql-ssl-test")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(".")
-	if err := viper.ReadInConfig(); err != nil {
-		log.Fatalf("Error reading config file: %s\n", err.Error())
+	if err = viper.ReadInConfig(); err != nil {
+		return
 	}
-	var config Configuration
-	if err := viper.Unmarshal(&config); err != nil {
-		log.Fatalf("Error unmarshaling config: %s\n", err.Error())
-	}
+	err = viper.Unmarshal(&config)
+	return
+}
+
+func (config *Configuration) GetMySQLDSN() (dsn string) {
 	dbconfig := config.Database
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", dbconfig.Username, dbconfig.Password, dbconfig.Host, dbconfig.Port, dbconfig.Schema)
+	dsn = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", dbconfig.Username, dbconfig.Password, dbconfig.Host, dbconfig.Port, dbconfig.Schema)
 	if len(dbconfig.ConnectOptions) > 0 {
 		dsn += "?"
 		params := url.Values{}
@@ -43,16 +68,14 @@ func main() {
 		}
 		dsn += params.Encode()
 	}
-	fmt.Printf("%+v\n", dbconfig)
-	fmt.Printf("[%s]\n", dsn)
+	return
+}
 
-	db, err := sql.Open("mysql", dsn)
-	if err != nil {
-		log.Fatalf("Error connecting to database: %s\n", err.Error())
+func (config *Configuration) GetMySQLDB() (db *sql.DB, err error) {
+	dsn := config.GetMySQLDSN()
+	if db, err = sql.Open("mysql", dsn); err != nil {
+		return
 	}
-	defer db.Close()
-	if err = db.Ping(); err != nil {
-		log.Fatalf("Error pinging database: %s\n", err.Error())
-	}
-	fmt.Printf("Successfully connected to database [%s:%s]\n", dbconfig.Host, dbconfig.Port)
+	err = db.Ping()
+	return
 }
